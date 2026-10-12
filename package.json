@@ -1,0 +1,36 @@
+{
+  "name": "capy-ledger",
+  "productName": "CapyLedger",
+  "version": "1.0.0",
+  "description": "卡皮账本 · 中转站余额与用量看板（New API / Kapibala）— 自用、无遥测",
+  "main": "src/main.cjs",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "test": "electron test/e2e.cjs"
+  },
+  "build": {
+    "appId": "local.capyledger",
+    "productName": "CapyLedger",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "src/assets/icon.ico"
+    },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    }
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.15.3"
+  }
+}

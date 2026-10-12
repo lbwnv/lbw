@@ -1,0 +1,46 @@
+# 在 GitHub 提供的全新、干净的 Windows 虚拟机上构建 exe。
+# 推送 v* 标签（例如 v1.0.0）时自动发布到 Releases；也可以在 Actions 页面手动运行。
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run dist
+
+      - name: SHA256
+        shell: pwsh
+        run: Get-FileHash dist/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Tee-Object dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CapyLedger-windows
+          path: |
+            dist/*.exe
+            dist/SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.exe
+            dist/SHA256SUMS.txt

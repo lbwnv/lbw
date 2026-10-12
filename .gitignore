@@ -1,0 +1,13 @@
+# 依赖与打包产物（不要提交）
+node_modules/
+dist/
+
+# 本地工具配置
+.claude/
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+.npmrc

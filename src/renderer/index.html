@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 渲染进程禁止一切网络连接：所有请求都在主进程 client.cjs 中完成 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>CapyLedger · 卡皮账本</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-mode="widget">
+<svg width="0" height="0" class="defs" aria-hidden="true">
+  <defs>
+    <linearGradient id="gradAccent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--accent)"/>
+      <stop offset="1" stop-color="var(--accent-2)"/>
+    </linearGradient>
+    <linearGradient id="gradWarm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--accent-3)"/>
+      <stop offset="1" stop-color="var(--accent)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<main class="shell" id="shell">
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="gridlines" aria-hidden="true"></div>
+  <div class="sync-beam" id="syncBeam" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><img src="../assets/logo.png" alt=""></div>
+      <div class="brand-text"><strong>CapyLedger</strong><span>卡皮账本</span></div>
+    </div>
+
+    <nav class="segmented" id="modeSwitch" role="tablist" aria-label="视图">
+      <span class="segmented-thumb"></span>
+      <button data-mode="widget" role="tab">小组件</button>
+      <button data-mode="full" role="tab">完整版</button>
+    </nav>
+
+    <div class="top-actions">
+      <button class="site-pill" id="sitePill" title="账户">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="siteLabel">未连接</span>
+        <svg viewBox="0 0 12 12" class="chev"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+      </button>
+      <button class="icon-btn" id="pinBtn" title="窗口置顶">
+        <svg viewBox="0 0 20 20"><path d="M12.6 2.8 17.2 7.4M14.9 5.1l-4.3 4.3-3.7-.6-1.5 1.5 6.3 6.3 1.5-1.5-.6-3.7 4.3-4.3M8.3 14.1 3.4 19"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="切换主题">
+        <svg viewBox="0 0 20 20" class="moon"><path d="M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8Z"/></svg>
+        <svg viewBox="0 0 20 20" class="sun"><circle cx="10" cy="10" r="3.4"/><path d="M10 1.8v2M10 16.2v2M1.8 10h2M16.2 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg>
+      </button>
+      <div class="win-controls">
+        <button class="icon-btn" id="minBtn" title="最小化"><svg viewBox="0 0 20 20"><path d="M5 10h10"/></svg></button>
+        <button class="icon-btn full-only" id="maxBtn" title="铺满屏幕"><svg viewBox="0 0 20 20"><rect x="5" y="5" width="10" height="10" rx="2.5"/></svg></button>
+        <button class="icon-btn close" id="closeBtn" title="隐藏到托盘"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="account-menu" id="accountMenu" hidden>
+    <div class="account-menu-head">
+      <div class="avatar" id="menuAvatar">?</div>
+      <div><strong id="menuUser">未登录</strong><span id="menuSite">—</span></div>
+    </div>
+    <button data-action="refresh">立即刷新</button>
+    <button data-action="open-site">打开站点控制台</button>
+    <button data-action="switch">切换账户 / 站点</button>
+    <button data-action="logout" class="danger">退出登录并清除本地数据</button>
+  </div>
+
+  <!-- ───────────── 小组件 ───────────── -->
+  <section class="view view-widget" id="widgetView">
+    <article class="card hero glow-border" style="--i:0">
+      <div class="hero-head">
+        <span class="eyebrow" id="widgetDate">TODAY</span>
+        <button class="icon-btn small" id="widgetRefresh" title="刷新"><svg viewBox="0 0 20 20" class="spin-icon"><path d="M16.2 10a6.2 6.2 0 1 1-1.8-4.4M16.2 3.6v3.6h-3.6"/></svg></button>
+      </div>
+      <div class="hero-label">今日消耗</div>
+      <div class="hero-value"><span class="sym" data-sym>$</span><span id="wToday" class="num">—</span></div>
+      <div class="hero-sub"><span id="wTodayReq">— 次请求</span><i></i><span id="wTodayTok">— Token</span></div>
+      <div class="spark" id="wSpark"></div>
+    </article>
+
+    <div class="tile-row">
+      <article class="card tile" style="--i:1">
+        <div class="tile-label">账户余额<span class="chip" id="wBalanceChip">—</span></div>
+        <div class="tile-value"><span data-sym>$</span><span id="wBalance" class="num">—</span></div>
+        <div class="meter"><span id="wBalanceBar"></span></div>
+        <div class="tile-meta" id="wBalanceMeta">已用 —</div>
+      </article>
+      <article class="card tile tile-ring" style="--i:2">
+        <div class="tile-label">订阅余额</div>
+        <div class="ring-wrap">
+          <svg viewBox="0 0 64 64" class="ring"><circle cx="32" cy="32" r="26" class="ring-bg"/><circle cx="32" cy="32" r="26" class="ring-fg" id="wSubRing" stroke="url(#gradWarm)"/></svg>
+          <div class="ring-text"><span id="wSubPct">—</span></div>
+        </div>
+        <div class="tile-value small"><span data-sym>$</span><span id="wSub" class="num">—</span></div>
+        <div class="tile-meta" id="wSubMeta">暂无订阅</div>
+      </article>
+    </div>
+
+    <div class="card strip" style="--i:3">
+      <div><span>本周</span><strong><span data-sym>$</span><span id="wWeek" class="num">—</span></strong></div>
+      <div><span>RPM</span><strong id="wRpm">—</strong></div>
+      <div><span>TPM</span><strong id="wTpm">—</strong></div>
+    </div>
+
+    <button class="cta" id="widgetCta" style="--i:4"><span id="widgetCtaText">打开完整看板</span><svg viewBox="0 0 20 20"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></button>
+    <footer class="widget-foot"><span class="live-dot"></span><span id="widgetSync">等待连接</span></footer>
+  </section>
+
+  <!-- ───────────── 完整版 ───────────── -->
+  <section class="view view-full" id="fullView" data-page="overview">
+    <div class="full-head">
+      <div>
+        <div class="eyebrow"><span id="pageEyebrow">OVERVIEW</span> · <span id="fullSiteName">—</span></div>
+        <h1 id="pageTitle">用量总览</h1>
+        <p id="fullSub">连接中转站账户后显示实时数据</p>
+      </div>
+      <div class="full-head-right">
+        <nav class="page-tabs" id="pageTabs">
+          <button data-page="overview" class="active"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>总览</button>
+          <button data-page="logs"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l4 4v10a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"/><path d="M11.5 2.5v4h4M7.5 10.5h5M7.5 13.5h5"/></svg>使用日志</button>
+        </nav>
+        <span class="sync-text" id="fullSync">尚未同步</span>
+        <button class="btn-primary" id="fullRefresh"><svg viewBox="0 0 20 20" class="spin-icon"><path d="M16.2 10a6.2 6.2 0 1 1-1.8-4.4M16.2 3.6v3.6h-3.6"/></svg><span>刷新</span></button>
+      </div>
+    </div>
+
+    <div class="notice" id="notice" hidden></div>
+
+    <div class="page page-overview">
+    <div class="kpi-grid">
+      <article class="card kpi glow-border" style="--i:0">
+        <div class="kpi-head"><span>今日消耗</span><svg viewBox="0 0 20 20"><path d="M3 14l4.5-4.5 3 3L17 6M12.5 6H17v4.5"/></svg></div>
+        <div class="kpi-value"><span data-sym>$</span><span id="kToday" class="num">—</span></div>
+        <div class="kpi-meta"><span id="kTodayReq">— 次请求</span><span id="kTodayTok">— Token</span></div>
+        <div class="spark" id="kSpark"></div>
+      </article>
+      <article class="card kpi" style="--i:1">
+        <div class="kpi-head"><span>账户余额</span><svg viewBox="0 0 20 20"><rect x="2.5" y="5" width="15" height="11" rx="2.5"/><path d="M2.5 8.5h15M13 12.5h1.5"/></svg></div>
+        <div class="kpi-value"><span data-sym>$</span><span id="kBalance" class="num">—</span></div>
+        <div class="meter"><span id="kBalanceBar"></span></div>
+        <div class="kpi-meta"><span id="kBalanceUsed">已用 —</span><span id="kBalanceTotal">总额 —</span></div>
+      </article>
+      <article class="card kpi" style="--i:2">
+        <div class="kpi-head"><span>订阅余额</span><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.2"/><path d="M10 5.8V10l2.8 1.8"/></svg></div>
+        <div class="kpi-value"><span data-sym>$</span><span id="kSub" class="num">—</span></div>
+        <div class="meter warm"><span id="kSubBar"></span></div>
+        <div class="kpi-meta"><span id="kSubUsed">已用 —</span><span id="kSubEnd">最近到期 —</span></div>
+      </article>
+      <article class="card kpi" style="--i:3">
+        <div class="kpi-head"><span>本周消耗</span><svg viewBox="0 0 20 20"><path d="M4 16V9M8 16V5M12 16v-5M16 16V7"/></svg></div>
+        <div class="kpi-value"><span data-sym>$</span><span id="kWeek" class="num">—</span></div>
+        <div class="kpi-meta"><span id="kWeekReq">— 次请求</span><span id="kWeekTok">— Token</span></div>
+        <div class="kpi-meta subtle"><span id="kRpm">RPM —</span><span id="kTpm">TPM —</span></div>
+      </article>
+    </div>
+
+    <div class="content-grid">
+      <article class="card panel" style="--i:4">
+        <div class="panel-head">
+          <div><h2 id="chartTitle">本周消耗</h2><p id="chartSub">按天统计 · 周一至周日</p></div>
+          <div class="tabs" id="chartTabs">
+            <button data-chart="week" class="active">本周</button>
+            <button data-chart="today">今日 24h</button>
+            <button data-chart="heatmap">全年热力图</button>
+          </div>
+        </div>
+        <div class="chart-stage">
+          <div class="chart" id="barChart">
+            <div class="chart-y" id="chartY"></div>
+            <div class="chart-plot"><div class="chart-grid"></div><div class="bars" id="bars"></div></div>
+          </div>
+          <div class="heatmap" id="heatmap" hidden>
+            <div class="heat-months" id="heatMonths"></div>
+            <div class="heat-body">
+              <div class="heat-days"><span>一</span><span></span><span>三</span><span></span><span>五</span><span></span><span>日</span></div>
+              <div class="heat-grid" id="heatGrid"></div>
+            </div>
+            <div class="heat-legend"><span>少</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>多</span></div>
+          </div>
+        </div>
+        <div class="panel-foot" id="chartFoot"></div>
+      </article>
+
+      <article class="card panel" style="--i:5">
+        <div class="panel-head">
+          <div><h2>Coding Plan</h2><p>订阅额度与到期时间</p></div>
+          <span class="chip" id="planCount">0 个有效</span>
+        </div>
+        <div class="plans" id="plans"><div class="empty">连接账户后显示订阅计划</div></div>
+      </article>
+    </div>
+
+    <article class="card panel" style="--i:6">
+      <div class="panel-head">
+        <div><h2>模型使用情况</h2><p id="modelSub">按消耗排序</p></div>
+        <div class="tabs" id="modelTabs">
+          <button data-range="today">今天</button>
+          <button data-range="week" class="active">本周</button>
+          <button data-range="month">近 30 天</button>
+        </div>
+      </div>
+      <div class="models" id="models"><div class="empty">暂无数据</div></div>
+    </article>
+    </div>
+
+    <!-- ───────────── 使用日志 ───────────── -->
+    <div class="page page-logs">
+      <article class="card panel log-filters" style="--i:0">
+        <div class="filter-grid">
+          <label class="field compact"><span>时间范围</span>
+            <div class="tabs" id="logRange">
+              <button data-range="today" class="active">今天</button>
+              <button data-range="7d">近 7 天</button>
+              <button data-range="30d">近 30 天</button>
+              <button data-range="custom">自定义</button>
+            </div>
+          </label>
+          <label class="field compact custom-range" hidden><span>开始</span><input id="logStart" type="datetime-local"></label>
+          <label class="field compact custom-range" hidden><span>结束</span><input id="logEnd" type="datetime-local"></label>
+          <label class="field compact"><span>类型</span>
+            <div class="select-wrap"><select id="logType">
+              <option value="0">全部</option>
+              <option value="2">消费</option>
+              <option value="1">充值</option>
+              <option value="5">错误</option>
+              <option value="6">退款</option>
+              <option value="3">管理</option>
+              <option value="4">系统</option>
+            </select></div>
+          </label>
+          <label class="field compact"><span>模型</span><input id="logModel" placeholder="模型名称" spellcheck="false"></label>
+          <label class="field compact"><span>令牌</span><input id="logToken" placeholder="令牌名称" spellcheck="false"></label>
+          <div class="filter-actions">
+            <button class="btn-ghost" id="logReset" type="button">重置</button>
+            <button class="btn-primary" id="logSearch" type="button"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.5"/><path d="m13 13 4 4"/></svg><span>查询</span></button>
+          </div>
+        </div>
+      </article>
+
+      <div class="log-stats" style="--i:1">
+        <div class="card stat-pill"><span>筛选结果消耗</span><strong id="logSpent">—</strong></div>
+        <div class="card stat-pill"><span>记录数</span><strong id="logTotal">—</strong></div>
+        <div class="card stat-pill"><span>RPM</span><strong id="logRpm">—</strong></div>
+        <div class="card stat-pill"><span>TPM</span><strong id="logTpm">—</strong></div>
+      </div>
+
+      <article class="card panel" style="--i:2">
+        <div class="log-table" id="logTable"><div class="empty">连接账户后显示使用日志</div></div>
+        <div class="pager" id="logPager" hidden>
+          <span id="logPageInfo"></span>
+          <div class="pager-btns">
+            <div class="select-wrap small"><select id="logPageSize"><option value="20">20 条/页</option><option value="50">50 条/页</option><option value="100">100 条/页</option></select></div>
+            <button class="icon-btn" id="logPrev" title="上一页"><svg viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5"/></svg></button>
+            <span class="page-num" id="logPageNum">1</span>
+            <button class="icon-btn" id="logNext" title="下一页"><svg viewBox="0 0 20 20"><path d="M8 5l5 5-5 5"/></svg></button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <footer class="full-foot">
+      <span><i class="lock"></i>仅连接 <b id="footHost">你填写的站点</b></span>
+      <span>凭据经 Windows DPAPI 加密，仅保存在本机</span>
+      <span>无遥测 · 无自动更新 · v1.0.0</span>
+    </footer>
+  </section>
+
+  <div class="resize-grip full-only" id="resizeGrip" title="拖动调整大小"></div>
+
+  <!-- ───────────── 登录 ───────────── -->
+  <div class="modal" id="loginModal" hidden>
+    <form class="modal-card card glow-border" id="loginForm" autocomplete="off">
+      <button type="button" class="icon-btn modal-close" id="loginClose"><svg viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8"/></svg></button>
+      <img class="modal-logo" src="../assets/logo.png" alt="">
+      <div class="eyebrow">CAPYLEDGER · 卡皮账本</div>
+      <h2>连接中转站账户</h2>
+      <p>支持 Kapibala 及其它基于 New API 的中转站。数据只在你的电脑和该站点之间传输。</p>
+
+      <label class="field"><span>站点地址</span><input id="fBase" placeholder="https://kapibala.asia" spellcheck="false"></label>
+
+      <div class="tabs full-width" id="authTabs">
+        <button type="button" data-auth="password" class="active">账号密码</button>
+        <button type="button" data-auth="token">访问令牌</button>
+      </div>
+
+      <div class="auth-pane" data-pane="password">
+        <label class="field"><span>账号</span><input id="fUser" spellcheck="false" autocomplete="username"></label>
+        <label class="field"><span>密码</span>
+          <div class="pass-wrap"><input id="fPass" type="password" autocomplete="current-password"><button type="button" id="togglePass">显示</button></div>
+        </label>
+        <label class="check"><input type="checkbox" id="fRemember"><i></i><span>记住密码（加密保存，会话过期时自动重新登录）</span></label>
+      </div>
+      <div class="auth-pane" data-pane="token" hidden>
+        <label class="field"><span>系统访问令牌</span><input id="fToken" spellcheck="false" placeholder="站点「个人设置 → 安全设置」中生成"></label>
+        <label class="field"><span>用户 ID</span><input id="fUid" inputmode="numeric" spellcheck="false" placeholder="个人设置页显示的数字 ID"></label>
+      </div>
+
+      <div class="form-error" id="loginError"></div>
+      <button class="btn-primary block" id="loginSubmit" type="submit"><span class="btn-spinner"></span><span>安全连接</span></button>
+    </form>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+  <div class="toast" id="toast"><span class="toast-dot"></span><span id="toastText"></span></div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
