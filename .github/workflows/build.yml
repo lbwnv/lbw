@@ -31,11 +31,22 @@ jobs:
         shell: pwsh
         run: Get-FileHash dist/*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash)  $(Split-Path $_.Path -Leaf)" } | Tee-Object dist/SHA256SUMS.txt
 
+      # 给普通用户的压缩包：exe + 使用说明 + 协议，同样在这台干净的虚拟机上生成
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $stage = "release/CapyLedger-v$version"
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item dist/*.exe, dist/SHA256SUMS.txt, LICENSE, *.md -Destination $stage
+          Compress-Archive -Path $stage -DestinationPath "dist/CapyLedger-v$version-windows.zip"
+
       - uses: actions/upload-artifact@v4
         with:
           name: CapyLedger-windows
           path: |
             dist/*.exe
+            dist/*.zip
             dist/SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
@@ -43,4 +54,5 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.zip
             dist/SHA256SUMS.txt
